@@ -1,255 +1,191 @@
-import csv 
-from student import Student
-from result import Result
+"""
+main.py
+Command-line interface for the Student Result Management System.
+Run this file to launch an interactive menu-driven program.
+"""
+
+from manager import StudentManager
+from exceptions import (
+    StudentNotFoundError,
+    DuplicateStudentError,
+    InvalidMarksError,
+    EmptyDataError,
+)
+
+MENU_TEXT = """
+=====================================
+   STUDENT RESULT MANAGEMENT SYSTEM
+=====================================
+1. Add new student
+2. View all students
+3. Search student by ID
+4. Search students by name
+5. Update student name
+6. Add / update subject marks
+7. Delete a subject from a student
+8. Delete a student
+9. Class report (topper, average, pass/fail)
+0. Exit
+=====================================
+"""
 
 
-FILE_NAME = "students.csv"
-
-
-def get_valid_mark(subject):
-    """Get a valid mark between 0 and 100."""
-
+def prompt_marks():
+    """Prompt the user to enter subject:marks pairs until they choose to stop."""
+    marks = {}
+    print("Enter subject and marks (leave subject blank to stop).")
     while True:
+        subject = input("  Subject: ").strip()
+        if not subject:
+            break
         try:
-            mark = float(input(f"Enter {subject} mark: "))
-
-            if 0 <= mark <= 100:
-                return mark
-
-            print("Mark must be between 0 and 100.")
-
+            score = float(input(f"  Marks for {subject} (0-100): ").strip())
         except ValueError:
-            print("Please enter a valid number.")
+            print("  Please enter a valid number for marks. Skipping this subject.")
+            continue
+        marks[subject] = score
+    return marks
 
 
-def save_student(student, result):
-    """Save student and result details into CSV file."""
-
-    file_exists = False
-
+def handle_add_student(manager):
+    student_id = input("Enter new student ID: ").strip()
+    name = input("Enter student name: ").strip()
+    marks = prompt_marks()
     try:
-        with open(FILE_NAME, "r", newline="") as file:
-            file_exists = bool(file.read(1))
-    except FileNotFoundError:
-        file_exists = False
-
-    with open(FILE_NAME, "a", newline="") as file:
-
-        fieldnames = [
-            "student_id",
-            "name",
-            "age",
-            "department",
-            "python",
-            "maths",
-            "english",
-            "total",
-            "average",
-            "grade"
-        ]
-
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
-
-        if not file_exists:
-            writer.writeheader()
-
-        writer.writerow({
-            "student_id": student.student_id,
-            "name": student.name,
-            "age": student.age,
-            "department": student.department,
-            "python": result.marks["Python"],
-            "maths": result.marks["Maths"],
-            "english": result.marks["English"],
-            "total": result.total,
-            "average": result.average,
-            "grade": result.calculate_grade()
-        })
+        student = manager.add_student(student_id, name, marks)
+        print(f"\nStudent added successfully:\n{student}")
+    except DuplicateStudentError as exc:
+        print(f"\nError: {exc}")
+    except InvalidMarksError as exc:
+        print(f"\nError: {exc}")
 
 
-def add_student():
-    """Add a new student and save the result."""
-
-    print("\n--- Add Student ---")
-
-    student_id = input("Enter student ID: ")
-    name = input("Enter student name: ")
-
-    while True:
-        try:
-            age = int(input("Enter age: "))
-
-            if age > 0:
-                break
-
-            print("Age must be greater than 0.")
-
-        except ValueError:
-            print("Please enter a valid age.")
-
-    department = input("Enter department: ")
-
-    marks = {
-        "Python": get_valid_mark("Python"),
-        "Maths": get_valid_mark("Maths"),
-        "English": get_valid_mark("English")
-    }
-
-    student = Student(
-        student_id,
-        name,
-        age,
-        department
-    )
-
-    result = Result(marks)
-
-    save_student(student, result)
-
-    print("\nStudent added successfully.")
-
-    student.display()
-    result.display_result()
+def handle_view_all(manager):
+    students = manager.list_all_students()
+    if not students:
+        print("\nNo student records found.")
+        return
+    print(f"\nTotal students: {len(students)}")
+    for student in students:
+        print(student)
 
 
-def view_students():
-    """Display all students stored in the CSV file."""
-
-    print("\n--- Student Records ---")
-
+def handle_search_by_id(manager):
+    student_id = input("Enter student ID to search: ").strip()
     try:
-        with open(FILE_NAME, "r", newline="") as file:
-            reader = csv.DictReader(file)
-
-            records = list(reader)
-
-            if not records:
-                print("No student records found.")
-                return
-
-            for student in records:
-                print("\n" + "-" * 40)
-                print(f"ID         : {student['student_id']}")
-                print(f"Name       : {student['name']}")
-                print(f"Age        : {student['age']}")
-                print(f"Department : {student['department']}")
-                print(f"Total      : {student['total']}")
-                print(f"Average    : {student['average']}")
-                print(f"Grade      : {student['grade']}")
-
-    except FileNotFoundError:
-        print("No student records found.")
+        student = manager.get_student(student_id)
+        print(f"\n{student}")
+    except StudentNotFoundError as exc:
+        print(f"\nError: {exc}")
 
 
-def search_student():
-    """Search for a student using student ID."""
+def handle_search_by_name(manager):
+    keyword = input("Enter name (or part of name) to search: ").strip()
+    matches = manager.search_by_name(keyword)
+    if not matches:
+        print("\nNo matching students found.")
+        return
+    for student in matches:
+        print(student)
 
-    search_id = input("Enter student ID to search: ")
 
+def handle_update_name(manager):
+    student_id = input("Enter student ID: ").strip()
+    new_name = input("Enter new name: ").strip()
     try:
-        with open(FILE_NAME, "r", newline="") as file:
-            reader = csv.DictReader(file)
-
-            for student in reader:
-
-                if student["student_id"] == search_id:
-                    print("\nStudent Found")
-                    print("-" * 30)
-                    print(f"ID         : {student['student_id']}")
-                    print(f"Name       : {student['name']}")
-                    print(f"Age        : {student['age']}")
-                    print(f"Department : {student['department']}")
-                    print(f"Total      : {student['total']}")
-                    print(f"Average    : {student['average']}")
-                    print(f"Grade      : {student['grade']}")
-                    return
-
-            print("Student not found.")
-
-    except FileNotFoundError:
-        print("No student records found.")
+        student = manager.update_student_name(student_id, new_name)
+        print(f"\nUpdated:\n{student}")
+    except StudentNotFoundError as exc:
+        print(f"\nError: {exc}")
 
 
-def delete_student():
-    """Delete a student using student ID."""
-
-    student_id = input("Enter student ID to delete: ")
-
+def handle_update_marks(manager):
+    student_id = input("Enter student ID: ").strip()
+    subject = input("Enter subject name: ").strip()
     try:
-        with open(FILE_NAME, "r", newline="") as file:
-            reader = csv.DictReader(file)
-            students = list(reader)
+        score = float(input("Enter marks (0-100): ").strip())
+    except ValueError:
+        print("\nError: Marks must be a number.")
+        return
+    try:
+        student = manager.update_subject_marks(student_id, subject, score)
+        print(f"\nUpdated:\n{student}")
+    except (StudentNotFoundError, InvalidMarksError) as exc:
+        print(f"\nError: {exc}")
 
-        updated_students = [
-            student
-            for student in students
-            if student["student_id"] != student_id
-        ]
 
-        if len(students) == len(updated_students):
-            print("Student not found.")
-            return
+def handle_delete_subject(manager):
+    student_id = input("Enter student ID: ").strip()
+    subject = input("Enter subject to remove: ").strip()
+    try:
+        student = manager.delete_subject(student_id, subject)
+        print(f"\nUpdated:\n{student}")
+    except StudentNotFoundError as exc:
+        print(f"\nError: {exc}")
 
-        fieldnames = [
-            "student_id",
-            "name",
-            "age",
-            "department",
-            "python",
-            "maths",
-            "english",
-            "total",
-            "average",
-            "grade"
-        ]
 
-        with open(FILE_NAME, "w", newline="") as file:
-            writer = csv.DictWriter(file, fieldnames=fieldnames)
+def handle_delete_student(manager):
+    student_id = input("Enter student ID to delete: ").strip()
+    try:
+        removed = manager.delete_student(student_id)
+        print(f"\nDeleted student: {removed.name} (ID: {removed.student_id})")
+    except StudentNotFoundError as exc:
+        print(f"\nError: {exc}")
 
-            writer.writeheader()
-            writer.writerows(updated_students)
 
-        print("Student deleted successfully.")
+def handle_class_report(manager):
+    try:
+        if not manager.list_all_students():
+            raise EmptyDataError("No students in the system yet.")
+        topper = manager.class_topper()
+        avg = manager.class_average()
+        passing = manager.passing_students()
+        failing = manager.failing_students()
 
-    except FileNotFoundError:
-        print("No student records found.")
+        print(f"\nClass topper: {topper.name} (ID: {topper.student_id}, "
+              f"Average: {topper.average_marks():.2f}, Grade: {topper.grade()})")
+        print(f"Class average (of averages): {avg:.2f}")
+        print(f"Students passing all subjects: {len(passing)}")
+        print(f"Students failing at least one subject: {len(failing)}")
+        if failing:
+            print("  Failing students:")
+            for student in failing:
+                print(f"    - {student.name} (ID: {student.student_id})")
+    except EmptyDataError as exc:
+        print(f"\n{exc}")
 
 
 def main():
-    """Run the Student Result Management System."""
+    manager = StudentManager()
+    actions = {
+        "1": handle_add_student,
+        "2": handle_view_all,
+        "3": handle_search_by_id,
+        "4": handle_search_by_name,
+        "5": handle_update_name,
+        "6": handle_update_marks,
+        "7": handle_delete_subject,
+        "8": handle_delete_student,
+        "9": handle_class_report,
+    }
 
     while True:
+        print(MENU_TEXT)
+        choice = input("Enter your choice: ").strip()
 
-        print("\n================================")
-        print(" STUDENT RESULT MANAGEMENT")
-        print("================================")
-        print("1. Add Student")
-        print("2. View Students")
-        print("3. Search Student")
-        print("4. Delete Student")
-        print("5. Exit")
-        print("================================")
-
-        choice = input("Enter your choice: ")
-
-        if choice == "1":
-            add_student()
-
-        elif choice == "2":
-            view_students()
-
-        elif choice == "3":
-            search_student()
-
-        elif choice == "4":
-            delete_student()
-
-        elif choice == "5":
-            print("Thank you for using the system.")
+        if choice == "0":
+            print("Goodbye!")
             break
 
-        else:
-            print("Invalid choice. Please try again.")
+        action = actions.get(choice)
+        if action is None:
+            print("\nInvalid choice. Please try again.")
+            continue
+
+        try:
+            action(manager)
+        except Exception as exc:  # Final safety net so the program never crashes
+            print(f"\nUnexpected error: {exc}")
 
 
 if __name__ == "__main__":

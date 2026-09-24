@@ -1,5 +1,3 @@
-student_id,name,marks
-
-
-S001,Asmi,Maths and 97:97.0;English:95.0;Tamil:94.0;Python:85.0;Science:93.0;Arabic:88.0;Social:99.0;Microbiology:82.0
-S002,Akram,English:99.0;Tamil:91.0;Maths:92.0;Python:79.0;Arabic:98.0;Science:91.0
+student_id,name,age,department,python,maths,english,total,average,grade
+ST001,Asmi,29,python,85.0,80.0,91.0,256.0,85.33333333333333,A
+ST002,Akram,29,maths,98.0,82.0,93.0,273.0,91.0,A+
